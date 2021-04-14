@@ -95,10 +95,11 @@ def parametrs_for_categories (id_cat, dif_names,res):
 
 
 def get_goods( res, g_root,param_cat,id_cat):
-    
+    print('3')
     data_="{'analog':0,'is_main_warehouse':0,'article_search_parameter_list':["
     link2=''
-    headers2={}
+    headers2={ }
+    root2=ET.Element('not_suitable_offers')
     
     vsego_tovarov=0     
     missed_goods=0     
@@ -107,17 +108,35 @@ def get_goods( res, g_root,param_cat,id_cat):
     param_cat.pop(0)
     link4=''
     data4="{'is_main_warehouse': 0, 'Brand_Article_List': [ "                                       
-    headers4={}
+    headers4={ }
+    link=""
+
+    driver = webdriver.Chrome('C:/webdrivers/chromedriver.exe')
+    
+    driver.get(link)
+    
+    login = driver.find_element_by_id("UserName")
+    
+    login.send_keys("login")
+    pswrd=driver.find_element_by_id('Password')
+    pswrd.send_keys("password")
+    btn=driver.find_element_by_xpath('//*[@id="loginForm1"]/form/fieldset/button')
+    btn.click()
+    txt=driver.page_source
+    s=[]
+    s=txt.split('<tr id="firstRowSection"')
+    q=[]
+    s.pop(0)
+    l=len(' name="proposalsStart_')
+    for n in s:
+        y=n.find('" class="repl_visibled_row')
+        st=n[l:y]
+        q.append(st)
     br_art=[]
-    br_art.append("{'Brand':'LAVR', 'Article':'LN1616'}")
-    br_art.append(str({'Brand':'LAVR', 'Article':'LN1324'}))   
-    br_art.append(str({'Brand':'LAVR', 'Article':'LN1208'}))  
-    br_art.append(str({'Brand':'LAVR', 'Article':'4032'}))
-    br_art.append(str({'Brand':'LAVR', 'Article':'4035'}))
-    br_art.append(str({'Brand':'PUSEFF', 'Article':'15200M'}))
-    br_art.append(str({'Brand':'LIQUIMOLY', 'Article':'35005'}))
-    br_art.append(str({'Brand':'LIQUIMOLY', 'Article':'35020'}))
-    br_art.append(str({'Brand':'LIQUIMOLY', 'Article':'35027'}))
+    for n in q:
+        m=n.split('-')
+        param="{'Brand': '"+str(m[0])+"', 'Article': '"+str(m[1])+"'}"
+        br_art.append(str(param))
     for d in br_art:
         
         #data4_for_data=''
@@ -125,7 +144,7 @@ def get_goods( res, g_root,param_cat,id_cat):
         data_data4={'JSONparameter':data4_for_data}
        
         try:
-            requ=requests.get(link4,params=data_data4,headers=headers4,timeout=30)
+            requ=requests.get(link4,params=data_data4,headers=headers4,timeout=10)
         except requests.exceptions.ReadTimeout:
             print("\n Переподключение к серверу \n")
             time.sleep(3)
@@ -142,7 +161,7 @@ def get_goods( res, g_root,param_cat,id_cat):
         if result is not None:
             for g in result :
                 
-                flag=1
+                flag_ph=0
                 vsego_tovarov=vsego_tovarov+1
                 photo_path="https://tmparts.ru/StaticContent/ProductImages/"
                 brand=str(g.get('brand')).replace(' ','%20')
@@ -152,12 +171,13 @@ def get_goods( res, g_root,param_cat,id_cat):
                 try:
                     
                     urllib.request.urlopen(link_photo)
+                    flag_ph=1
                 except:
                     continue
-                    
+                   
                  
                 if g.get('article') not in existing_art:
-                    
+                    flag_branch=0
                     existing_art.append(g.get('article'))
                     for b in g.get('warehouse_offers'):
                         
@@ -188,25 +208,43 @@ def get_goods( res, g_root,param_cat,id_cat):
                             gg_quantity.text=str(b.get('quantity'))
                             gg_delivery_period=ET.SubElement(gg_root_tp_var,"delivery_period")
                             gg_delivery_period.text=str(b.get('delivery_period'))
-                            flag=0
+                            flag_branch=1
                             gg_root_tp.append(gg_root_tp_var)
                             gg_root.append(gg_root_tp)
                             g_root.append(gg_root)
+                            
+                    if (flag_branch==0) or (flag_ph==0):
+                        gg_root=ET.Element("offer")
+                        gg_brand=ET.SubElement(gg_root,"brand")
+                        gg_brand.text=g.get('brand')
+                        gg_artikle=ET.SubElement(gg_root,'article')
+                        gg_artikle.text=g.get('article')
+                        gg_name=ET.SubElement(gg_root,"name")
+                        gg_name.text=g.get('article_name')
+                        gg_photo=ET.SubElement(gg_root,'photo')
+                        gg_photo.text=(link_photo)
+                        gg_category=ET.SubElement(gg_root,'category_id')
+                        gg_category.text='4'
+                        gg_descr=ET.SubElement(gg_root,'description')
+                        #gg_descr.text=str(m)+" : "+str(n.get("Value"))
+                        
+                        gg_root_tp=ET.Element('variants')
+                        
+                        gg_root_tp_var=ET.Element('variant')
+                        gg_price=ET.SubElement(gg_root_tp_var,"price")
+                        gg_price.text=str((round(b.get('price')*float(1.20))))
+                        gg_min_part=ET.SubElement(gg_root_tp_var,"min_part")
+                        gg_min_part.text=str(b.get('min_part'))
+                        gg_quantity=ET.SubElement(gg_root_tp_var,"quantity")
+                        gg_quantity.text=str(b.get('quantity'))
+                        gg_delivery_period=ET.SubElement(gg_root_tp_var,"delivery_period")
+                        gg_delivery_period.text=str(b.get('delivery_period'))
                        
-                            
+                        gg_root_tp.append(gg_root_tp_var)
+                        gg_root.append(gg_root_tp)
+                        root2.append(gg_root)
+                   
                
-                    #print("already existing")
-                    #for child in g_root.getchildren():
-                        #print(g.get('article'),'---',str(child.find("article").text))
-                        #if g.get('article')==str(child.find("article").text):
-                            #print("yes")
-                            #if child.find("description").text.find(str(m))!=-1:
-                                #child.find("description").text=child.find("description").text +", "+str(n.get("Value"))
-                            #else:   
-                                #child.find("description").text=child.find("description").text +"\n"+ str(m)+' : '+str(n.get("Value"))
-                            
-                                
-                            #print(child.find("description").text)
                 missed_goods=missed_goods+flag
     for num in range(len(param_cat)):
         
@@ -221,7 +259,7 @@ def get_goods( res, g_root,param_cat,id_cat):
                     data2={'JSONparameter':data_for_data2}
                     #get goods with certain [x,y]
                     try:
-                        req=requests.get(link2,params=data2,headers=headers2,timeout=30)
+                        req=requests.get(link2,params=data2,headers=headers2,timeout=10)
                     except requests.exceptions.ReadTimeout:
                         print("\n Переподключение к серверу \n")
                         time.sleep(3)
@@ -238,9 +276,9 @@ def get_goods( res, g_root,param_cat,id_cat):
                        
                         for g in result :
                             
-                            flag=1
+                            flag_ph=0
                             vsego_tovarov=vsego_tovarov+1
-                            photo_path="https://tmparts.ru/StaticContent/ProductImages/"
+                            photo_path="photopath"
                             brand=str(g.get('brand')).replace(' ','%20')
                             
                             art=str(g.get('article')).replace(' ','%20')
@@ -248,12 +286,13 @@ def get_goods( res, g_root,param_cat,id_cat):
                             try:
                                 
                                 urllib.request.urlopen(link_photo)
+                                flag_ph=1
                             except:
                                 continue
                                 #print("No photo")
                              
                             if g.get('article') not in existing_art:
-                                
+                                flag_branch=0
                                 existing_art.append(g.get('article'))
                                 for b in g.get('warehouse_offers'):
                                     
@@ -284,10 +323,40 @@ def get_goods( res, g_root,param_cat,id_cat):
                                         gg_quantity.text=str(b.get('quantity'))
                                         gg_delivery_period=ET.SubElement(gg_root_tp_var,"delivery_period")
                                         gg_delivery_period.text=str(b.get('delivery_period'))
-                                        flag=0
+                                        flag_branch=1
                                         gg_root_tp.append(gg_root_tp_var)
                                         gg_root.append(gg_root_tp)
                                         g_root.append(gg_root)
+                                if (flag_branch==0) or (flag_ph==0):
+                                    gg_root=ET.Element("offer")
+                                    gg_brand=ET.SubElement(gg_root,"brand")
+                                    gg_brand.text=g.get('brand')
+                                    gg_artikle=ET.SubElement(gg_root,'article')
+                                    gg_artikle.text=g.get('article')
+                                    gg_name=ET.SubElement(gg_root,"name")
+                                    gg_name.text=g.get('article_name')
+                                    gg_photo=ET.SubElement(gg_root,'photo')
+                                    gg_photo.text=(link_photo)
+                                    gg_category=ET.SubElement(gg_root,'category_id')
+                                    gg_category.text='4'
+                                    gg_descr=ET.SubElement(gg_root,'description')
+                                    #gg_descr.text=str(m)+" : "+str(n.get("Value"))
+                                    
+                                    gg_root_tp=ET.Element('variants')
+                                    
+                                    gg_root_tp_var=ET.Element('variant')
+                                    gg_price=ET.SubElement(gg_root_tp_var,"price")
+                                    gg_price.text=str((round(b.get('price')*float(1.20))))
+                                    gg_min_part=ET.SubElement(gg_root_tp_var,"min_part")
+                                    gg_min_part.text=str(b.get('min_part'))
+                                    gg_quantity=ET.SubElement(gg_root_tp_var,"quantity")
+                                    gg_quantity.text=str(b.get('quantity'))
+                                    gg_delivery_period=ET.SubElement(gg_root_tp_var,"delivery_period")
+                                    gg_delivery_period.text=str(b.get('delivery_period'))
+                                   
+                                    gg_root_tp.append(gg_root_tp_var)
+                                    gg_root.append(gg_root_tp)
+                                    root2.append(gg_root)
                             else:
                                 
                                 for child in g_root.getchildren():
@@ -307,8 +376,7 @@ def get_goods( res, g_root,param_cat,id_cat):
    
 
                     
-    return g_root
-
+    return g_root, root2
 
 res,root,id_cat,dif_names=get_categories()
 params_for_cat=[]
